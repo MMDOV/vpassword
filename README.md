@@ -101,7 +101,7 @@ Contributions are welcome! Please open issues or submit pull requests on GitHub.
 
 ## Contact/Support
 
-For questions or issues, please use the [GitHub Issues](https://github.com/yourusername/vpassword/issues) page.
+For questions or issues, please use the [GitHub Issues](https://github.com/mmdov/vpassword/issues) page.
 
 ## License
 
