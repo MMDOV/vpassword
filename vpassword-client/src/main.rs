@@ -1,6 +1,5 @@
 mod cli;
 mod handlers;
-mod vault;
 
 // NOTE: take a master password and create a vault with that password
 // that vault is a file inside that file theres our salt, nonce and the ciphered text

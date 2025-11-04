@@ -1,6 +1,6 @@
 use crate::cli::{Commands, PasswordCommands, VaultCommands};
-use crate::vault::{PasswordEntry, Vault};
 use passwords::PasswordGenerator;
+use vpassword_core::models::{PasswordEntry, Vault};
 
 pub fn handle_command(command: Commands) {
     match command {
