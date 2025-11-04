@@ -109,10 +109,11 @@ MIT
 
 ## TODO
 
+- Password agent to keep master password saved for some time
+- Safer/better way to ask for master password (e.g. not via CLI args)
 - Add password strength meter
 - Support for password categories/tags
 - Import/export vaults
 - Interactive TUI mode
-- Cloud sync or backup options
 
 ---
