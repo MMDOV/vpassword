@@ -1401,6 +1401,7 @@ dependencies = [
  "passwords",
  "ratatui",
  "serde_json",
+ "tokio",
  "vpassword-core",
 ]
 
