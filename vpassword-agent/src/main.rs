@@ -1,7 +1,16 @@
-use tokio::net::{UnixListener, UnixStream};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+use tokio::{
+    net::{UnixListener, UnixStream},
+    time::Instant,
+};
+use zeroize::Zeroizing;
 
 #[tokio::main]
 async fn main() {
+    let state = Arc::new(Mutex::new(AgentState::empty()));
     let listener = UnixListener::bind("/tmp/vault.sock").unwrap();
 
     loop {
@@ -23,10 +32,21 @@ async fn handle_client(mut stream: UnixStream) -> Result<(), Box<dyn std::error:
     let mut buf = vec![0u8; 1024];
     let n = stream.read(&mut buf).await?;
     let message = String::from_utf8_lossy(&buf[..n]);
-    println!("Client said: {}", message);
-
-    // Echo back
     stream.write_all(b"Message received").await?;
 
     Ok(())
+}
+
+struct AgentState {
+    master_key: Option<Zeroizing<Vec<u8>>>,
+    expires_at: Option<Instant>,
+}
+
+impl AgentState {
+    fn empty() -> Self {
+        AgentState {
+            master_key: None,
+            expires_at: None,
+        }
+    }
 }
