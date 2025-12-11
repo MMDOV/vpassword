@@ -1,12 +1,10 @@
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 use tokio::{
     net::{UnixListener, UnixStream},
     time::Instant,
 };
 use zeroize::Zeroizing;
+mod handlers;
 
 #[tokio::main]
 async fn main() {
@@ -18,7 +16,7 @@ async fn main() {
             Ok((stream, _addr)) => {
                 tokio::spawn(async move {
                     println!("new client!");
-                    handle_client(stream).await.unwrap();
+                    handlers::handle_request(stream).await;
                 });
             }
             Err(e) => eprintln!("accept failed: {e}"),
@@ -26,26 +24,26 @@ async fn main() {
     }
 }
 
-async fn handle_client(mut stream: UnixStream) -> Result<(), Box<dyn std::error::Error>> {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-    let mut buf = vec![0u8; 1024];
-    let n = stream.read(&mut buf).await?;
-    let message = String::from_utf8_lossy(&buf[..n]);
-    stream.write_all(b"Message received").await?;
-
-    Ok(())
-}
+//async fn handle_client(mut stream: UnixStream) -> Result<(), Box<dyn std::error::Error>> {
+//    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+//
+//    let mut buf = vec![0u8; 1024];
+//    let n = stream.read(&mut buf).await?;
+//    let message = String::from_utf8_lossy(&buf[..n]);
+//    stream.write_all(b"Message received").await?;
+//
+//    Ok(())
+//}
 
 struct AgentState {
-    master_key: Option<Zeroizing<Vec<u8>>>,
+    vault_key: Option<Zeroizing<Vec<u8>>>,
     expires_at: Option<Instant>,
 }
 
 impl AgentState {
     fn empty() -> Self {
         AgentState {
-            master_key: None,
+            vault_key: None,
             expires_at: None,
         }
     }

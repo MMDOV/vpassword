@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 tokio = {version = "1.48.0", features = ["full"]}
+vpassword-core = { path = "../vpassword-core" }
 zeroize = "1.8.2"
