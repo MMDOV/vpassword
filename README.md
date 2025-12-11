@@ -1,3 +1,5 @@
+# NOT WORKING AT THE MOMENT AT ALL IM REFACTORING THE WHOLE THING
+
 # VPassword CLI
 
 A simple password manager command-line application written in Rust.
