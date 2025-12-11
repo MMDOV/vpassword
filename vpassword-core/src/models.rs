@@ -1,6 +1,23 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use rand::rand_core::{OsRng, TryRngCore};
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum RequestType {
+    VaultOpen,
+    VaultList,
+    VaultRemove,
+    PasswordAdd,
+    PasswordRemove,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Request {
+    pub request_type: RequestType,
+    pub vault_name: String,
+    pub master_password: Vec<u8>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PasswordEntry {
     pub name: String,

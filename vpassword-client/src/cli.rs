@@ -9,56 +9,13 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    Vault {
-        #[command(subcommand)]
-        command: VaultCommands,
-    },
-    Password {
-        #[command(subcommand)]
-        command: PasswordCommands,
-    },
-}
-
-/// Vault related actions
-#[derive(Subcommand, Debug)]
-pub enum VaultCommands {
-    /// Create a new vault
-    Create {
-        vault_name: String,
-        master_pass: String,
-    },
-    /// Remove an existing vault
-    Remove {
-        vault_name: String,
-        master_pass: String,
-    },
-    /// Returns a list of all the vaults
-    List {
-        vault_name: String,
-        master_pass: String,
-    },
-}
-
-#[derive(Subcommand, Debug)]
-/// Password related actions
-pub enum PasswordCommands {
-    /// Add a new password entry
-    Add {
-        vault_name: String,
-        master_pass: String,
-        name: String,
-        username: String,
-        /// can enter "generate" for a password to be generated automatically
-        password: String,
-    },
-    /// Remove a password entry
-    Remove {
-        vault_name: String,
-        master_pass: String,
-        name: String,
-    },
-    /// Generate a safe password
-    Generate {},
+    Init { vault_name: String },
+    Open { vault_name: String },
+    Close { vault_name: String },
+    Generate { name: String, username: String },
+    Show { name: String },
+    List,
+    Delete { name: String },
 }
 
 pub fn parse_cli() -> Commands {

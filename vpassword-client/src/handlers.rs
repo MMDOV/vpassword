@@ -1,113 +1,168 @@
-use crate::cli::{Commands, PasswordCommands, VaultCommands};
+use crate::cli::Commands;
 use passwords::PasswordGenerator;
-use vpassword_core::models::{PasswordEntry, Vault};
+use serde_json;
+use tokio::net::UnixStream;
+use vpassword_core::models::{PasswordEntry, Request, RequestType, Vault};
 
-pub fn handle_command(command: Commands) {
+pub async fn handle_command(command: Commands, stream: UnixStream) {
     match command {
-        Commands::Vault { command } => handle_vault(command),
-        Commands::Password { command } => handle_password(command),
-    }
-}
-
-fn handle_vault(command: VaultCommands) {
-    match command {
-        VaultCommands::Create {
-            vault_name,
-            master_pass,
-        } => {
-            let mut vault = Vault::new(&vault_name);
-            let vault_key = vault
-                .derive_vault_key(master_pass.as_ref())
-                .expect("Error trying to encrypt master key");
-            vault
-                .encrypt_data(&vault_key, b"")
-                .expect("Error encrypting data");
-            vault.save_to_file().expect("Error saving to file")
+        Commands::Init { vault_name } => {
+            println!("create vault {vault_name}");
         }
-        VaultCommands::Remove {
-            vault_name,
-            master_pass,
-        } => {
-            let vault = Vault::new_from_file(vault_name).expect("Errcr trying to load the vault");
-            vault
-                .delete(master_pass.as_ref())
-                .expect("Error removing vault");
-        }
-        VaultCommands::List {
-            vault_name,
-            master_pass,
-        } => {
-            let vault = Vault::new_from_file(vault_name).expect("Error trying to load the vault");
-            let list = serde_json::to_string_pretty(
-                &vault
-                    .list(master_pass.as_ref())
-                    .expect("Error trying to list vault"),
-            )
-            .expect("Error");
-            println!("{}", &list);
-        }
-    }
-}
-
-fn handle_password(command: PasswordCommands) {
-    match command {
-        PasswordCommands::Add {
-            vault_name,
-            master_pass,
-            name,
-            username,
-            password,
-        } => {
-            let mut vault =
-                Vault::new_from_file(vault_name).expect("Error trying to load the vault");
-
-            let user_password = if password.to_lowercase() == "generate" {
-                let pg = PasswordGenerator {
-                    length: 15,
-                    numbers: true,
-                    lowercase_letters: true,
-                    uppercase_letters: true,
-                    symbols: true,
-                    spaces: false,
-                    exclude_similar_characters: false,
-                    strict: true,
-                };
-                pg.generate_one().expect("Error generating password")
-            } else {
-                password
+        Commands::Open { vault_name } => {
+            // NOTE: check if vault exists
+            // check if a vault is already open
+            // check if that vault is this vault
+            // if so prompt user with appropriate message
+            // if not prompt for master password
+            // send open request to agent
+            // send appropriate message based on if open or not
+            let master_password = rpassword::prompt_password("Your master password: ").unwrap();
+            let request: Request = Request {
+                request_type: RequestType::VaultOpen,
+                vault_name,
+                master_password: master_password.into_bytes(),
             };
-
-            let password_entry = PasswordEntry::new(&name, &username, &user_password);
-            println!("{:#?}", password_entry);
-
-            vault
-                .add_entry(master_pass.as_ref(), password_entry)
-                .expect("Failed to add entry");
+            send_request_to_agent(stream, request).await;
         }
-        PasswordCommands::Remove {
-            vault_name,
-            master_pass,
-            name,
-        } => {
-            let mut vault =
-                Vault::new_from_file(vault_name).expect("Error trying to load the vault");
-            vault
-                .remove_entry(master_pass.as_ref(), &name)
-                .expect("Failed to remove entry");
+        Commands::Close { vault_name } => {
+            println!("close vault {vault_name}");
         }
-        PasswordCommands::Generate {} => {
-            let pg = PasswordGenerator {
-                length: 15,
-                numbers: true,
-                lowercase_letters: true,
-                uppercase_letters: true,
-                symbols: true,
-                spaces: false,
-                exclude_similar_characters: false,
-                strict: true,
-            };
-            let generated_pass = pg.generate_one().expect("Error generating password");
-            println!("{}", generated_pass);
+        Commands::Generate { name, username } => {
+            println!(
+                "create new entry with name of {name}, username of {username} and generated password"
+            );
+        }
+        Commands::Show { name } => {
+            println!("show password for {name}");
+        }
+        Commands::List => {
+            println!("list every pasword");
+        }
+        Commands::Delete { name } => {
+            println!("delete {name}");
         }
     }
 }
+
+async fn send_request_to_agent(stream: UnixStream, request: Request) {
+    let json = serde_json::to_vec_pretty(&request).unwrap();
+    loop {
+        stream.writable().await.unwrap();
+
+        match stream.try_write(json.as_ref()) {
+            Ok(_) => {
+                break;
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                continue;
+            }
+            Err(_) => {
+                println!("err");
+            }
+        }
+    }
+}
+
+//fn handle_vault(command: VaultCommands) {
+//    match command {
+//        VaultCommands::Create {
+//            vault_name,
+//            master_pass,
+//        } => {
+//            let mut vault = Vault::new(&vault_name);
+//            let vault_key = vault
+//                .derive_vault_key(master_pass.as_ref())
+//                .expect("Error trying to encrypt master key");
+//            vault
+//                .encrypt_data(&vault_key, b"")
+//                .expect("Error encrypting data");
+//            vault.save_to_file().expect("Error saving to file")
+//        }
+//        VaultCommands::Remove {
+//            vault_name,
+//            master_pass,
+//        } => {
+//            let vault = Vault::new_from_file(vault_name).expect("Errcr trying to load the vault");
+//            vault
+//                .delete(master_pass.as_ref())
+//                .expect("Error removing vault");
+//        }
+//        VaultCommands::List {
+//            vault_name,
+//            master_pass,
+//        } => {
+//            let vault = Vault::new_from_file(vault_name).expect("Error trying to load the vault");
+//            let list = serde_json::to_string_pretty(
+//                &vault
+//                    .list(master_pass.as_ref())
+//                    .expect("Error trying to list vault"),
+//            )
+//            .expect("Error");
+//            println!("{}", &list);
+//        }
+//    }
+//}
+//
+//fn handle_password(command: PasswordCommands) {
+//    match command {
+//        PasswordCommands::Add {
+//            vault_name,
+//            master_pass,
+//            name,
+//            username,
+//            password,
+//        } => {
+//            let mut vault =
+//                Vault::new_from_file(vault_name).expect("Error trying to load the vault");
+//
+//            let user_password = if password.to_lowercase() == "generate" {
+//                let pg = PasswordGenerator {
+//                    length: 15,
+//                    numbers: true,
+//                    lowercase_letters: true,
+//                    uppercase_letters: true,
+//                    symbols: true,
+//                    spaces: false,
+//                    exclude_similar_characters: false,
+//                    strict: true,
+//                };
+//                pg.generate_one().expect("Error generating password")
+//            } else {
+//                password
+//            };
+//
+//            let password_entry = PasswordEntry::new(&name, &username, &user_password);
+//            println!("{:#?}", password_entry);
+//
+//            vault
+//                .add_entry(master_pass.as_ref(), password_entry)
+//                .expect("Failed to add entry");
+//        }
+//        PasswordCommands::Remove {
+//            vault_name,
+//            master_pass,
+//            name,
+//        } => {
+//            let mut vault =
+//                Vault::new_from_file(vault_name).expect("Error trying to load the vault");
+//            vault
+//                .remove_entry(master_pass.as_ref(), &name)
+//                .expect("Failed to remove entry");
+//        }
+//        PasswordCommands::Generate {} => {
+//            let pg = PasswordGenerator {
+//                length: 15,
+//                numbers: true,
+//                lowercase_letters: true,
+//                uppercase_letters: true,
+//                symbols: true,
+//                spaces: false,
+//                exclude_similar_characters: false,
+//                strict: true,
+//            };
+//            let generated_pass = pg.generate_one().expect("Error generating password");
+//            println!("{}", generated_pass);
+//        }
+//    }
+//}

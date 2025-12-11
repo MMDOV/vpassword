@@ -10,23 +10,24 @@ use tokio::net::UnixStream;
 // FIX: add error handling everyting is panicking right now
 #[tokio::main]
 async fn main() {
-    Command::new("vpassword-agent").status().unwrap();
     let stream = UnixStream::connect("/tmp/vault.sock").await.unwrap();
-    loop {
-        stream.writable().await.unwrap();
+    //Command::new("vpassword-agent").status().unwrap();
+    //let stream = UnixStream::connect("/tmp/vault.sock").await.unwrap();
+    //loop {
+    //    stream.writable().await.unwrap();
 
-        match stream.try_write(b"hello world") {
-            Ok(_) => {
-                break;
-            }
-            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                continue;
-            }
-            Err(_) => {
-                println!("err");
-            }
-        }
-    }
+    //    match stream.try_write(b"hello world") {
+    //        Ok(_) => {
+    //            break;
+    //        }
+    //        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+    //            continue;
+    //        }
+    //        Err(_) => {
+    //            println!("err");
+    //        }
+    //    }
+    //}
     let commands = cli::parse_cli();
-    handlers::handle_command(commands);
+    handlers::handle_command(commands, stream).await;
 }

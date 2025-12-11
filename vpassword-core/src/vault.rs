@@ -33,17 +33,20 @@ impl Vault {
         Ok(vault)
     }
 
-    pub fn delete(&self, master_password: &[u8]) -> Result<(), VaultError> {
+    pub fn unlock_and_get_key(&self, master_password: &[u8]) -> Result<[u8; 32], VaultError> {
         let vault_key = self.derive_vault_key(&master_password)?;
         self.decrypt_data(&vault_key)?;
 
+        Ok(vault_key)
+    }
+
+    pub fn delete(&self) -> Result<(), VaultError> {
         let file_path = format!("{}.vault", self.name.as_str());
         fs::remove_file(&file_path)?;
         Ok(())
     }
 
-    pub fn list(&self, master_password: &[u8]) -> Result<PasswordList, VaultError> {
-        let vault_key = self.derive_vault_key(&master_password)?;
+    pub fn list(&self, vault_key: &[u8]) -> Result<PasswordList, VaultError> {
         let plane_text = String::from_utf8(self.decrypt_data(&vault_key)?)?;
         let password_list: PasswordList = serde_json::from_str(&plane_text)?;
         Ok(password_list)
@@ -51,10 +54,10 @@ impl Vault {
 
     pub fn add_entry(
         &mut self,
-        master_password: &[u8],
+        vault_key: &[u8],
         password_entry: PasswordEntry,
     ) -> Result<(), VaultError> {
-        let mut password_list = self.list(&master_password)?;
+        let mut password_list = self.list(&vault_key)?;
         if password_list
             .passwords
             .iter()
@@ -64,15 +67,15 @@ impl Vault {
         }
         password_list.passwords.push(password_entry);
         self.encrypt_data(
-            &self.derive_vault_key(&master_password)?,
+            vault_key,
             serde_json::to_string_pretty(&password_list)?.as_bytes(),
         )?;
         self.save_to_file()?;
 
         Ok(())
     }
-    pub fn remove_entry(&mut self, master_password: &[u8], name: &str) -> Result<(), VaultError> {
-        let mut password_list = self.list(&master_password)?;
+    pub fn remove_entry(&mut self, vault_key: &[u8], name: &str) -> Result<(), VaultError> {
+        let mut password_list = self.list(&vault_key)?;
         if let Some(index) = password_list
             .passwords
             .iter()
@@ -81,7 +84,7 @@ impl Vault {
             password_list.passwords.remove(index);
 
             self.encrypt_data(
-                &self.derive_vault_key(&master_password)?,
+                vault_key,
                 serde_json::to_string_pretty(&password_list)?.as_bytes(),
             )?;
             self.save_to_file()?;
