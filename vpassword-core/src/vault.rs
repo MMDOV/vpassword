@@ -3,8 +3,11 @@ use crate::{
     models::{Argon2Params, EncryptionData, PasswordEntry, PasswordList, Vault},
 };
 
-use std::fs::{self, File};
 use std::io::prelude::*;
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
 
 impl PasswordEntry {
     pub fn new(name: &str, username: &str, password: &str) -> PasswordEntry {
@@ -17,17 +20,17 @@ impl PasswordEntry {
 }
 
 impl Vault {
-    pub fn new(name: &str) -> Self {
+    pub fn new(path: &PathBuf) -> Self {
         Self {
-            name: name.to_string(),
+            name: path.file_stem().unwrap().to_string_lossy().to_string(),
+            path: path.to_owned(),
             version: 1,
             argon2: Argon2Params::default(),
             encryption: EncryptionData::default(),
         }
     }
 
-    pub fn new_from_file(file_name: String) -> Result<Vault, VaultError> {
-        let file_path = format!("{}.vault", file_name);
+    pub fn new_from_file(file_path: &PathBuf) -> Result<Vault, VaultError> {
         let file = File::open(file_path)?;
         let vault: Vault = serde_json::from_reader(file)?;
         Ok(vault)
@@ -91,6 +94,20 @@ impl Vault {
         }
 
         Ok(())
+    }
+
+    pub fn get_entry(&mut self, vault_key: &[u8], name: &str) -> Result<PasswordEntry, VaultError> {
+        let password_list = self.list(&vault_key)?;
+        if let Some(index) = password_list
+            .passwords
+            .iter()
+            .position(|entry| entry.name == name)
+        {
+            let entry = password_list.passwords.get(index).unwrap().clone();
+            Ok(entry)
+        } else {
+            Err(VaultError::NoSuchEntry(name.to_string()))
+        }
     }
 
     pub fn save_to_file(&self) -> Result<(), VaultError> {

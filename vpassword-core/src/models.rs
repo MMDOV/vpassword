@@ -1,21 +1,27 @@
+use std::path::PathBuf;
+
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use rand::rand_core::{OsRng, TryRngCore};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum RequestType {
-    VaultOpen,
-    VaultList,
-    VaultRemove,
-    PasswordAdd,
-    PasswordRemove,
-}
+pub enum Request {
+    UnlockVault {
+        vault_path: PathBuf,
+        master_password: Vec<u8>,
+    },
+    LockVault,
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Request {
-    pub request_type: RequestType,
-    pub vault_name: String,
-    pub master_password: Vec<u8>,
+    ListEntries,
+    GetEntry {
+        name: String,
+    },
+    AddEntry {
+        entry: PasswordEntry,
+    },
+    RemoveEntry {
+        name: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -47,6 +53,7 @@ pub struct EncryptionData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Vault {
     pub name: String,
+    pub path: PathBuf,
     pub version: u8,
     pub argon2: Argon2Params,
     pub encryption: EncryptionData,

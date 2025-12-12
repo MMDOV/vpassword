@@ -20,8 +20,11 @@ pub enum VaultError {
     #[error("AEAD encryption/decryption error")]
     Aead,
 
-    #[error("dublicate entry: {0}")]
+    #[error("duplicate entry: {0}")]
     DuplicateEntry(String),
+
+    #[error("no such entry: {0}")]
+    NoSuchEntry(String),
 }
 
 impl From<argon2::Error> for VaultError {
