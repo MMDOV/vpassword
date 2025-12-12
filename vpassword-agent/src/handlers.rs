@@ -8,6 +8,8 @@ use vpassword_core::models::{Request, Vault};
 use crate::AgentState;
 
 // FIX: needs to send data back to client instead of printing and panicing
+// TODO: expiration time
+// TODO: better handling of vault state
 async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) {
     match request {
         Request::UnlockVault {
