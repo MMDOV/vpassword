@@ -2,14 +2,22 @@ use crate::cli::Commands;
 use passwords::PasswordGenerator;
 use serde_json;
 use tokio::net::UnixStream;
-use vpassword_core::models::{PasswordEntry, Request, RequestType, Vault};
+use vpassword_core::models::{PasswordEntry, Request, Vault};
 
 pub async fn handle_command(command: Commands, stream: UnixStream) {
     match command {
-        Commands::Init { vault_name } => {
-            println!("create vault {vault_name}");
+        Commands::Init { vault_path } => {
+            let mut vault = Vault::new(&vault_path);
+            let master_password = rpassword::prompt_password("Your master password: ").unwrap();
+            let vault_key = vault
+                .derive_vault_key(master_password.as_ref())
+                .expect("Error trying to encrypt master key");
+            vault
+                .encrypt_data(&vault_key, b"")
+                .expect("Error encrypting data");
+            vault.save_to_file().expect("Error saving to file")
         }
-        Commands::Open { vault_name } => {
+        Commands::Open { vault_path } => {
             // NOTE: check if vault exists
             // check if a vault is already open
             // check if that vault is this vault
@@ -18,40 +26,66 @@ pub async fn handle_command(command: Commands, stream: UnixStream) {
             // send open request to agent
             // send appropriate message based on if open or not
             let master_password = rpassword::prompt_password("Your master password: ").unwrap();
-            let request: Request = Request {
-                request_type: RequestType::VaultOpen,
-                vault_name,
-                master_password: master_password.into_bytes(),
-            };
-            send_request_to_agent(stream, request).await;
+            send_request_to_agent(
+                stream,
+                Request::UnlockVault {
+                    vault_path,
+                    master_password: master_password.into_bytes(),
+                },
+            )
+            .await;
         }
-        Commands::Close { vault_name } => {
-            println!("close vault {vault_name}");
-        }
+        Commands::Close => send_request_to_agent(stream, Request::LockVault).await,
         Commands::Generate { name, username } => {
-            println!(
-                "create new entry with name of {name}, username of {username} and generated password"
-            );
+            let pg = PasswordGenerator {
+                length: 15,
+                numbers: true,
+                lowercase_letters: true,
+                uppercase_letters: true,
+                symbols: true,
+                spaces: false,
+                exclude_similar_characters: false,
+                strict: true,
+            };
+            let user_password = pg.generate_one().expect("Error generating password");
+            let password_entry = PasswordEntry::new(&name, &username, &user_password);
+            send_request_to_agent(
+                stream,
+                Request::AddEntry {
+                    entry: password_entry,
+                },
+            )
+            .await;
         }
-        Commands::Show { name } => {
-            println!("show password for {name}");
+        Commands::Show { name } => send_request_to_agent(stream, Request::GetEntry { name }).await,
+        Commands::List => send_request_to_agent(stream, Request::ListEntries).await,
+
+        Commands::Remove { name } => {
+            send_request_to_agent(stream, Request::RemoveEntry { name }).await
         }
-        Commands::List => {
-            println!("list every pasword");
-        }
-        Commands::Delete { name } => {
-            println!("delete {name}");
+
+        Commands::Add { name, username } => {
+            let user_password = rpassword::prompt_password("Your password: ").unwrap();
+            let password_entry = PasswordEntry::new(&name, &username, &user_password);
+            send_request_to_agent(
+                stream,
+                Request::AddEntry {
+                    entry: password_entry,
+                },
+            )
+            .await;
         }
     }
 }
 
 async fn send_request_to_agent(stream: UnixStream, request: Request) {
-    let json = serde_json::to_vec_pretty(&request).unwrap();
+    let json = serde_json::to_string(&request).unwrap();
     loop {
         stream.writable().await.unwrap();
 
-        match stream.try_write(json.as_ref()) {
+        match stream.try_write(json.as_bytes()) {
             Ok(_) => {
+                println!("sent");
                 break;
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {

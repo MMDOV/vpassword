@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "password", about = "A simple password manager CLI")]
@@ -9,13 +10,14 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    Init { vault_name: String },
-    Open { vault_name: String },
-    Close { vault_name: String },
+    Init { vault_path: PathBuf },
+    Open { vault_path: PathBuf },
+    Close,
     Generate { name: String, username: String },
+    Add { name: String, username: String },
     Show { name: String },
     List,
-    Delete { name: String },
+    Remove { name: String },
 }
 
 pub fn parse_cli() -> Commands {
