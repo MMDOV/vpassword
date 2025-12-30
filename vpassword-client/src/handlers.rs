@@ -1,9 +1,44 @@
 use crate::cli::Commands;
 use passwords::PasswordGenerator;
-use tokio::net::UnixStream;
-use vpassword_core::models::{PasswordEntry, Request, Vault};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::UnixStream,
+};
+use vpassword_core::models::{PasswordEntry, Request, Response, Vault};
 
-pub async fn handle_command(command: Commands, stream: UnixStream) {
+pub async fn handle_command(command: Commands) {
+    match command {
+        Commands::Init { vault_path } => {
+            handle_init(vault_path);
+        }
+        _ => {
+            let stream = match UnixStream::connect("/tmp/vault.sock").await {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("Could not connect to agent: {e}");
+                    eprintln!("Make sure 'vault-agent' is running.");
+                    std::process::exit(1);
+                }
+            };
+
+            handle_agent_command(command, stream).await;
+        }
+    }
+}
+pub fn handle_init(vault_path: std::path::PathBuf) {
+    let mut vault = Vault::new(&vault_path);
+    let master_password = rpassword::prompt_password("Your master password: ").unwrap();
+    let vault_key = vault
+        .derive_vault_key(master_password.as_ref())
+        .expect("Error trying to encrypt master key");
+    vault
+        .encrypt_data(&vault_key, b"")
+        .expect("Error encrypting data");
+    vault.save_to_file().expect("Error saving to file");
+    println!("Vault initialized at {:?}", vault_path);
+}
+
+pub async fn handle_agent_command(command: Commands, stream: UnixStream) {
     match command {
         Commands::Init { vault_path } => {
             let mut vault = Vault::new(&vault_path);
@@ -25,7 +60,7 @@ pub async fn handle_command(command: Commands, stream: UnixStream) {
             // send open request to agent
             // send appropriate message based on if open or not
             let master_password = rpassword::prompt_password("Your master password: ").unwrap();
-            send_request_to_agent(
+            let response = send_request_to_agent(
                 stream,
                 Request::UnlockVault {
                     vault_path,
@@ -33,8 +68,17 @@ pub async fn handle_command(command: Commands, stream: UnixStream) {
                 },
             )
             .await;
+            match response {
+                Response::Ok => println!("Vault is Opened!"),
+                Response::Error(e) => println!("Problem Openning Vault: {e}"),
+                _ => eprintln!("Unexpected response type."),
+            };
         }
-        Commands::Close => send_request_to_agent(stream, Request::LockVault).await,
+        Commands::Close => match send_request_to_agent(stream, Request::LockVault).await {
+            Response::Ok => println!("Vault sucessfully closed!"),
+            Response::Error(e) => println!("Problem closing Vault: {e}"),
+            _ => eprintln!("Unexpected response type."),
+        },
         Commands::Generate { name, username } => {
             let pg = PasswordGenerator {
                 length: 15,
@@ -48,53 +92,93 @@ pub async fn handle_command(command: Commands, stream: UnixStream) {
             };
             let user_password = pg.generate_one().expect("Error generating password");
             let password_entry = PasswordEntry::new(&name, &username, &user_password);
-            send_request_to_agent(
+            match send_request_to_agent(
                 stream,
                 Request::AddEntry {
                     entry: password_entry,
                 },
             )
-            .await;
+            .await
+            {
+                Response::Ok => println!(
+                    "Entry {name} with user: {username} and password: {user_password} added to vault!"
+                ),
+                Response::Error(e) => println!("Error trying to add entry: {e}"),
+                _ => eprintln!("Unexpected response type."),
+            }
         }
-        Commands::Show { name } => send_request_to_agent(stream, Request::GetEntry { name }).await,
-        Commands::List => send_request_to_agent(stream, Request::ListEntries).await,
+        Commands::Show { name } => {
+            match send_request_to_agent(stream, Request::GetEntry { name }).await {
+                Response::PasswordEntry { entry } => {
+                    println!(
+                        "Entry found:\nName: {}\nUsername: {}\nPassword: {}",
+                        entry.name, entry.username, entry.password
+                    );
+                }
+                Response::Error(e) => eprintln!("Error: {}", e),
+                _ => eprintln!("Unexpected response type."),
+            }
+        }
+        Commands::List => match send_request_to_agent(stream, Request::ListEntries).await {
+            Response::PasswordList { list } => {
+                for entry in list.passwords {
+                    println!(
+                        "Name: {}\nUsername: {}\nPassword: {}",
+                        entry.name, entry.username, entry.password
+                    );
+                }
+            }
+            Response::Error(e) => eprintln!("Error: {}", e),
+            _ => eprintln!("Unexpected response type."),
+        },
 
         Commands::Remove { name } => {
-            send_request_to_agent(stream, Request::RemoveEntry { name }).await
+            match send_request_to_agent(stream, Request::RemoveEntry { name }).await {
+                Response::Ok => println!("Sucessfully Removed Entry."),
+                Response::Error(e) => eprintln!("Error: {}", e),
+                _ => eprintln!("Unexpected response type."),
+            }
         }
 
         Commands::Add { name, username } => {
             let user_password = rpassword::prompt_password("Your password: ").unwrap();
             let password_entry = PasswordEntry::new(&name, &username, &user_password);
-            send_request_to_agent(
+            let response = send_request_to_agent(
                 stream,
                 Request::AddEntry {
                     entry: password_entry,
                 },
             )
             .await;
+            match response {
+                Response::Ok => println!(
+                    "Entry {name} with user: {username} and password: {user_password} added to vault!"
+                ),
+                Response::Error(e) => println!("Error trying to add entry: {e}"),
+                _ => eprintln!("Unexpected response type."),
+            }
         }
     }
 }
 
-async fn send_request_to_agent(stream: UnixStream, request: Request) {
-    let json = serde_json::to_string(&request).unwrap();
-    loop {
-        stream.writable().await.unwrap();
+async fn send_request_to_agent(mut stream: UnixStream, request: Request) -> Response {
+    let json_bytes = serde_json::to_vec(&request).expect("Serialization failed");
+    stream
+        .write_all(&json_bytes)
+        .await
+        .expect("Failed to write to socket");
 
-        match stream.try_write(json.as_bytes()) {
-            Ok(_) => {
-                println!("sent");
-                break;
-            }
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                continue;
-            }
-            Err(_) => {
-                println!("err");
-            }
-        }
+    let mut buf = vec![0u8; 4096]; // A reasonable buffer size
+    let n = stream
+        .read(&mut buf)
+        .await
+        .expect("Failed to read from socket");
+
+    if n == 0 {
+        panic!("Agent closed connection unexpectedly");
     }
+
+    serde_json::from_slice(&buf[..n]).expect("Failed to parse response")
 }
 
 //fn handle_vault(command: VaultCommands) {
