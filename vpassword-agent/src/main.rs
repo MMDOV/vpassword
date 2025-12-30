@@ -10,7 +10,7 @@ use models::AgentState;
 // FIX: clean up of sock file after exiting
 #[tokio::main]
 async fn main() {
-    let state = Arc::new(Mutex::new(AgentState::empty()));
+    let state = Arc::new(Mutex::new(AgentState::new()));
     let listener = UnixListener::bind("/tmp/vault.sock").unwrap();
 
     loop {

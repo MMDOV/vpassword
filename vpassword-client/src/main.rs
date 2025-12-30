@@ -1,6 +1,5 @@
 mod cli;
 mod handlers;
-use std::{io, process::Command};
 use tokio::net::UnixStream;
 
 // NOTE: take a master password and create a vault with that password

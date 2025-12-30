@@ -37,7 +37,7 @@ impl Vault {
     }
 
     pub fn unlock_and_get_key(&self, master_password: &[u8]) -> Result<[u8; 32], VaultError> {
-        let vault_key = self.derive_vault_key(&master_password)?;
+        let vault_key = self.derive_vault_key(master_password)?;
         self.decrypt_data(&vault_key)?;
 
         Ok(vault_key)
@@ -50,7 +50,7 @@ impl Vault {
     }
 
     pub fn list(&self, vault_key: &[u8]) -> Result<PasswordList, VaultError> {
-        let plane_text = String::from_utf8(self.decrypt_data(&vault_key)?)?;
+        let plane_text = String::from_utf8(self.decrypt_data(vault_key)?)?;
         let password_list: PasswordList = serde_json::from_str(&plane_text)?;
         Ok(password_list)
     }
@@ -60,7 +60,7 @@ impl Vault {
         vault_key: &[u8],
         password_entry: PasswordEntry,
     ) -> Result<(), VaultError> {
-        let mut password_list = self.list(&vault_key)?;
+        let mut password_list = self.list(vault_key)?;
         if password_list
             .passwords
             .iter()
@@ -78,7 +78,7 @@ impl Vault {
         Ok(())
     }
     pub fn remove_entry(&mut self, vault_key: &[u8], name: &str) -> Result<(), VaultError> {
-        let mut password_list = self.list(&vault_key)?;
+        let mut password_list = self.list(vault_key)?;
         if let Some(index) = password_list
             .passwords
             .iter()
@@ -97,7 +97,7 @@ impl Vault {
     }
 
     pub fn get_entry(&mut self, vault_key: &[u8], name: &str) -> Result<PasswordEntry, VaultError> {
-        let password_list = self.list(&vault_key)?;
+        let password_list = self.list(vault_key)?;
         if let Some(index) = password_list
             .passwords
             .iter()

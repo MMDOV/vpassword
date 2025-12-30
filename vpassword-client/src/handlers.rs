@@ -1,6 +1,5 @@
 use crate::cli::Commands;
 use passwords::PasswordGenerator;
-use serde_json;
 use tokio::net::UnixStream;
 use vpassword_core::models::{PasswordEntry, Request, Vault};
 

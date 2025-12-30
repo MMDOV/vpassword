@@ -5,6 +5,14 @@ use rand::rand_core::{OsRng, TryRngCore};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Response {
+    Ok,
+    Error(String),
+    PasswordEntry { entry: PasswordEntry },
+    PasswordList { list: PasswordList },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Request {
     UnlockVault {
         vault_path: PathBuf,
@@ -44,7 +52,7 @@ pub struct Argon2Params {
     pub parallelism: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct EncryptionData {
     pub nonce: String,
     pub ciphertext: String,
@@ -68,15 +76,6 @@ impl Default for Argon2Params {
             mem_cost: 19 * 1024,
             time_cost: 2,
             parallelism: 1,
-        }
-    }
-}
-
-impl Default for EncryptionData {
-    fn default() -> Self {
-        Self {
-            nonce: String::new(),
-            ciphertext: String::new(),
         }
     }
 }

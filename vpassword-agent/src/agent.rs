@@ -1,14 +1,30 @@
+use std::error::Error;
+use std::path::PathBuf;
+use zeroize::Zeroizing;
+
 use crate::AgentState;
 
 impl AgentState {
-    pub fn empty() -> Self {
+    pub fn new() -> Self {
         AgentState {
             vault_key: None,
             vault_path: None,
         }
     }
 
-    pub fn clear_key(&mut self) {
-        self.vault_key = None;
+    pub fn unlock_vault(&mut self, path: PathBuf, key: [u8; 32]) -> Result<(), Box<dyn Error>> {
+        self.vault_path = Some(path);
+        self.vault_key = Some(Zeroizing::new(key.to_vec()));
+        Ok(())
+    }
+
+    pub fn lock_vault(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.vault_key.is_some() {
+            self.vault_key = None;
+        }
+        if self.vault_path.is_some() {
+            self.vault_path = None;
+        }
+        Ok(())
     }
 }
