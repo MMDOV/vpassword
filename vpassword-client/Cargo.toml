@@ -1,6 +1,6 @@
 [package]
 name = "vpassword-client"
-version = "0.1.0"
+version = "0.5.0"
 edition = "2024"
 license = "MIT"
 
@@ -11,3 +11,7 @@ vpassword-core = { path = "../vpassword-core" }
 serde_json = "1.0.105"
 tokio = {version = "1.48.0", features = ["full"]}
 rpassword = "7.4.0"
+
+[[bin]]
+name = "vpassword"
+path = "src/main.rs"

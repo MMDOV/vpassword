@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use rand::rand_core::{OsRng, TryRngCore};
 use serde::{Deserialize, Serialize};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Response {
@@ -32,7 +33,7 @@ pub enum Request {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub struct PasswordEntry {
     pub name: String,
     pub username: String,
@@ -73,8 +74,8 @@ impl Default for Argon2Params {
         OsRng.try_fill_bytes(&mut salt).unwrap();
         Self {
             salt: STANDARD.encode(salt),
-            mem_cost: 19 * 1024,
-            time_cost: 2,
+            mem_cost: 64 * 1024,
+            time_cost: 3,
             parallelism: 1,
         }
     }

@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::path::PathBuf;
+use tokio::time::Instant;
 use zeroize::Zeroizing;
 
 use crate::AgentState;
@@ -9,12 +10,14 @@ impl AgentState {
         AgentState {
             vault_key: None,
             vault_path: None,
+            last_activity: None,
         }
     }
 
     pub fn unlock_vault(&mut self, path: PathBuf, key: [u8; 32]) -> Result<(), Box<dyn Error>> {
         self.vault_path = Some(path);
         self.vault_key = Some(Zeroizing::new(key.to_vec()));
+        self.last_activity = Some(Instant::now());
         Ok(())
     }
 

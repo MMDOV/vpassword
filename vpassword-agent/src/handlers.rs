@@ -4,16 +4,31 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
     sync::Mutex,
+    time::Instant,
 };
 
 use vpassword_core::models::{Request, Response, Vault};
 
 use crate::AgentState;
 
-// FIX: needs to send data back to client instead of printing and panicing
 // TODO: expiration time
 // TODO: better handling of vault state
 async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) -> Response {
+    let mut guard = state.lock().await;
+    if guard.last_activity.is_some() {
+        let time_since_last_activity = guard.last_activity.unwrap().elapsed().as_secs();
+        if time_since_last_activity >= 300 {
+            return match guard.lock_vault() {
+                Ok(_) => {
+                    Response::Error("Session timed out. You need to run open again.".to_string())
+                }
+                Err(e) => Response::Error(e.to_string()),
+            };
+        } else {
+            guard.last_activity = Some(Instant::now())
+        }
+    }
+
     match request {
         Request::UnlockVault {
             vault_path,
