@@ -34,7 +34,6 @@ async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) -> Resp
             vault_path,
             master_password,
         } => {
-            let mut guard = state.lock().await;
             if guard.vault_key.is_some() {
                 return Response::Error("a vault is already open".to_string());
             }
@@ -46,19 +45,20 @@ async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) -> Resp
                 Err(e) => return Response::Error(e.to_string()),
             };
             return match guard.unlock_vault(vault_path, vault_key) {
-                Ok(_) => Response::Ok,
+                Ok(_) => {
+                    println!("sending back unlcok");
+                    Response::Ok
+                }
                 Err(e) => Response::Error(e.to_string()),
             };
         }
         Request::LockVault => {
-            let mut guard = state.lock().await;
             return match guard.lock_vault() {
                 Ok(_) => Response::Ok,
                 Err(e) => Response::Error(e.to_string()),
             };
         }
         Request::ListEntries => {
-            let guard = state.lock().await;
             if guard.vault_key.is_some() {
                 let vault = match Vault::new_from_file(guard.vault_path.as_ref().unwrap()) {
                     Ok(vault) => vault,
@@ -73,7 +73,6 @@ async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) -> Resp
             }
         }
         Request::GetEntry { name } => {
-            let guard = state.lock().await;
             if guard.vault_key.is_none() {
                 return Response::Error("No vault is open".to_string());
             }
@@ -87,7 +86,6 @@ async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) -> Resp
             }
         }
         Request::AddEntry { entry } => {
-            let guard = state.lock().await;
             if guard.vault_key.is_none() {
                 return Response::Error("No vault is open".to_string());
             }
@@ -101,7 +99,6 @@ async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) -> Resp
             }
         }
         Request::RemoveEntry { name } => {
-            let guard = state.lock().await;
             if guard.vault_key.is_none() {
                 return Response::Error("No vault is open".to_string());
             }

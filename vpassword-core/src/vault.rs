@@ -69,10 +69,7 @@ impl Vault {
             return Err(VaultError::DuplicateEntry(password_entry.name.clone()));
         }
         password_list.passwords.push(password_entry);
-        self.encrypt_data(
-            vault_key,
-            serde_json::to_string_pretty(&password_list)?.as_bytes(),
-        )?;
+        self.encrypt_data(vault_key, serde_json::to_string(&password_list)?.as_bytes())?;
         self.save_to_file()?;
 
         Ok(())

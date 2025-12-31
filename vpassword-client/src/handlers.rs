@@ -6,7 +6,7 @@ use tokio::{
     net::UnixStream,
     time::Duration,
 };
-use vpassword_core::models::{PasswordEntry, Request, Response, Vault};
+use vpassword_core::models::{PasswordEntry, PasswordList, Request, Response, Vault};
 
 pub async fn handle_command(command: Commands) {
     match command {
@@ -45,6 +45,7 @@ pub async fn handle_command(command: Commands) {
                     }
                 }
             };
+            println!("Coneected to agent!");
 
             handle_agent_command(command, stream).await;
         }
@@ -57,7 +58,12 @@ pub fn handle_init(vault_path: std::path::PathBuf) {
         .derive_vault_key(master_password.as_ref())
         .expect("Error trying to encrypt master key");
     vault
-        .encrypt_data(&vault_key, b"")
+        .encrypt_data(
+            &vault_key,
+            serde_json::to_string(&PasswordList::default())
+                .unwrap()
+                .as_bytes(),
+        )
         .expect("Error encrypting data");
     vault.save_to_file().expect("Error saving to file");
     println!("Vault initialized at {:?}", vault_path);
@@ -65,17 +71,7 @@ pub fn handle_init(vault_path: std::path::PathBuf) {
 
 pub async fn handle_agent_command(command: Commands, stream: UnixStream) {
     match command {
-        Commands::Init { vault_path } => {
-            let mut vault = Vault::new(&vault_path);
-            let master_password = rpassword::prompt_password("Your master password: ").unwrap();
-            let vault_key = vault
-                .derive_vault_key(master_password.as_ref())
-                .expect("Error trying to encrypt master key");
-            vault
-                .encrypt_data(&vault_key, b"")
-                .expect("Error encrypting data");
-            vault.save_to_file().expect("Error saving to file")
-        }
+        Commands::Init { vault_path: _ } => {}
         Commands::Open { vault_path } => {
             // NOTE: check if vault exists
             // check if a vault is already open
