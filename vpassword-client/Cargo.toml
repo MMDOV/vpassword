@@ -1,15 +1,17 @@
 [package]
 name = "vpassword-client"
-version = "0.5.0"
-edition = "2024"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [dependencies]
+tokio.workspace = true
+serde_json.workspace = true
+vpassword-core.workspace = true
+
 passwords = "3.1.16"
 clap = { version = "4.5.51", features = ["derive"] }
-vpassword-core = { path = "../vpassword-core" }
-serde_json = "1.0.105"
-tokio = {version = "1.48.0", features = ["full"]}
 rpassword = "7.4.0"
 
 [[bin]]
