@@ -28,6 +28,9 @@ impl AgentState {
         if self.vault_path.is_some() {
             self.vault_path = None;
         }
+        if self.last_activity.is_some() {
+            self.last_activity = None;
+        }
         Ok(())
     }
 }
