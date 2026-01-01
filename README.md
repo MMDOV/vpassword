@@ -62,7 +62,7 @@ You interact with the system entirely through the `vpassword` command. The Agent
 Creates a new encrypted vault file. You will be prompted securely for a master password.
 
 ```sh
-vpassword init --vault-path ./my_vault.dat
+vpassword init ./my_vault.dat
 
 ```
 
@@ -71,7 +71,7 @@ vpassword init --vault-path ./my_vault.dat
 Unlocks the vault and starts the session.
 
 ```sh
-vpassword open --vault-path ./my_vault.dat
+vpassword open ./my_vault.dat
 # Enter master password when prompted
 
 ```
@@ -82,7 +82,7 @@ Once the vault is open, you don't need to provide the path or password again unt
 
 * **Add a new entry:**
 ```sh
-vpassword add -n github -u johndoe
+vpassword add github johndoe
 # You will be prompted for the password
 
 ```
@@ -90,7 +90,7 @@ vpassword add -n github -u johndoe
 
 * **Generate a strong password & add it:**
 ```sh
-vpassword generate -n google -u my_email
+vpassword generate google my_email
 
 ```
 
@@ -104,7 +104,7 @@ vpassword list
 
 * **Show a specific password:**
 ```sh
-vpassword show -n github
+vpassword show github
 
 ```
 
