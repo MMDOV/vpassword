@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AppConfig {
+    last_opened: Option<PathBuf>,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Response {
     Ok,
     Error(String),

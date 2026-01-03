@@ -1,6 +1,8 @@
 use crate::cli::Commands;
+use crate::config::{get_config_path, load_config, save_config};
+use crate::models::AppConfig;
 use passwords::PasswordGenerator;
-use std::process::Command;
+use std::{fs::read_dir, process::Command};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
@@ -73,18 +75,62 @@ pub async fn handle_agent_command(command: Commands, stream: UnixStream) {
     match command {
         Commands::Init { vault_path: _ } => {}
         Commands::Open { vault_path } => {
-            // NOTE: check if vault exists
-            // check if a vault is already open
-            // check if that vault is this vault
-            // if so prompt user with appropriate message
-            // if not prompt for master password
-            // send open request to agent
-            // send appropriate message based on if open or not
+            let path = match vault_path {
+                Some(vault_path) => {
+                    if vault_path.components().count() > 1 {
+                        vault_path
+                    } else {
+                        let mut config_path = get_config_path();
+                        config_path.push("vaults");
+                        config_path.push(vault_path);
+                        config_path
+                    }
+                }
+                None => {
+                    let config = load_config().expect("Error loading config");
+                    match config.last_opened {
+                        Some(path) => path,
+                        None => {
+                            let mut config_path = get_config_path();
+                            config_path.push("vaults");
+                            let vaults = read_dir(config_path)
+                                .expect("Error reading vaults directory")
+                                .filter_map(|entry| entry.ok());
+                            let vaults_vector: Vec<_> = vaults.collect();
+                            let vault_count = vaults_vector.len();
+                            if vault_count > 1 {
+                                println!(" Theres more then one vault.\nWhich one do you mean?");
+                                let mut index = 1;
+                                for vault in &vaults_vector {
+                                    println!("{index} - {}", vault.file_name().to_str().unwrap());
+                                    index += 1
+                                }
+                                println!("Pick from (1-{index})");
+                                let mut input = String::new();
+                                std::io::stdin()
+                                    .read_line(&mut input)
+                                    .expect("Failed to read line");
+                                let vault_index = input.trim().parse::<usize>().unwrap() - 1;
+                                vaults_vector[vault_index].path()
+                            } else if vault_count == 1 {
+                                vaults_vector[0].path()
+                            } else {
+                                println!("There are no vaults. Create one with `vpassword init`");
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                }
+            };
+            save_config(&AppConfig {
+                last_opened: Some(path.clone()),
+            })
+            .expect("Error saving config");
             let master_password = rpassword::prompt_password("Your master password: ").unwrap();
             let response = send_request_to_agent(
                 stream,
                 Request::UnlockVault {
-                    vault_path,
+                    vault_path: path,
                     master_password: master_password.into_bytes(),
                 },
             )

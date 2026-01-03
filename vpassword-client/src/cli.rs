@@ -10,8 +10,8 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    Init { vault_path: PathBuf },
-    Open { vault_path: PathBuf },
+    Init { vault_path: Option<PathBuf> },
+    Open { vault_path: Option<PathBuf> },
     Close,
     Generate { name: String, username: String },
     Add { name: String, username: String },

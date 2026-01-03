@@ -10,8 +10,6 @@ mod models;
 use handlers::handle_client;
 use models::AgentState;
 
-// TODO: we need to be sending stuff back (results, errors, etc,)
-// FIX: clean up of sock file after exiting
 #[tokio::main]
 async fn main() {
     let socket_path = "/tmp/vault.sock";
