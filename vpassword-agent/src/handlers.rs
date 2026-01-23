@@ -13,8 +13,10 @@ use crate::AgentState;
 
 // TODO: expiration time
 // TODO: better handling of vault state
+// TODO: need an edit command ( cant fucking believe I forgot this)
 async fn handle_request(request: Request, state: Arc<Mutex<AgentState>>) -> Response {
     let mut guard = state.lock().await;
+    // FIX: need to only do this check if the command is not close or open
     if guard.last_activity.is_some() {
         let time_since_last_activity = guard.last_activity.unwrap().elapsed().as_secs();
         if time_since_last_activity >= 300 {
